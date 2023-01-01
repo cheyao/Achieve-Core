@@ -1,7 +1,7 @@
 module RegisterFile(
    input  wire        clk,
    input  wire [4:0]  rd,
-   output reg  [63:0] write_data,
+   input  wire [63:0] write_data,
    input  wire        we,
    input  wire [4:0]  rs1,
    output reg  [63:0] data1,
@@ -11,12 +11,11 @@ module RegisterFile(
    reg [63:0] registers [0:4];
 
    initial begin
-      for (i = 0; i < 32; i = i + 1)
-         registers[i] = 0;
+      registers[0] = 0;
    end
 
    always @(posedge clk) begin
-      if (we)
+      if (we && rd != 0)
          registers[rd] <= write_data; 
 
       data1 <= registers[rs1];

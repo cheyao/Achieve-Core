@@ -10,7 +10,9 @@ module bench();
 
    initial begin
       clk = 0;
-      #500 $finish;
+      #5000 
+      $display("Timed out!");
+      $finish;
    end
 
    always begin
