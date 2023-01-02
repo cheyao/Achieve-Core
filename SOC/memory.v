@@ -4,18 +4,14 @@ module Memory(
    inout [63:0] data,
    input        rw
 );
-   reg [31:0] MEM [0:255];
-   reg [31:0] d;
+   reg [63:0] MEM [0:255];
+   reg [63:0] d;
 
-`include "SOC/riscv_assembly.v"
-   integer L0_   = 4;
-   integer wait_ = 24;
-   integer L1_   = 32;
-   
+   `include "SOC/riscv_assembly.v"
    initial begin
-      ADDI(x10,x0,5);
-      
-      EBREAK();
+      MEM[0] = {32'h02000113, 32'h000000b3};
+      MEM[1] = {32'hfe209ee3, 32'h00108093};
+      MEM[2] = {32'h00000000, 32'h00100073};
    end
 
    always @(negedge clk) begin

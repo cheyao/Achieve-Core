@@ -12,9 +12,13 @@ module RegisterFile(
 
    initial begin
       registers[0] = 0;
+      registers[1] = 0;
    end
 
    always @(posedge clk) begin
+      if (we) begin
+      end
+
       if (we && rd != 0)
          registers[rd] <= write_data; 
 

@@ -7,9 +7,11 @@ module bench();
    wire reset = 0; 
    wire [63:0] addr;
    wire [63:0] data;
+   wire [63:0] led;
 
    initial begin
       clk = 0;
+      $monitor("LED: %b", led);
       #5000 
       $display("Timed out!");
       $finish;
@@ -21,6 +23,7 @@ module bench();
 
    SOC soc(
       .clk(clk),
-      .reset(reset)
+      .reset(reset),
+      .LED(led)
    );
 endmodule  

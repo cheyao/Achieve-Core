@@ -6,12 +6,12 @@
 `default_nettype none
 
 `include "SOC/memory.v"
-`include "SOC/registerfile.v"
 `include "SOC/CPU.v"
 
 module SOC (
    input  clk,
-   input  reset
+   input  reset,
+   output [63:0] LED
 );
    wire [63:0] mem_addr;
    wire [63:0] mem_data;
@@ -22,6 +22,7 @@ module SOC (
       .reset(reset),
       .mem_addr(mem_addr),
       .mem_data(mem_data),
+      .LED(LED),
       .rw(rw)
    );
 
