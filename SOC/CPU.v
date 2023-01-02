@@ -1,16 +1,16 @@
-`include "SOC/registerfile.v"
+`include "SOC/RegisterFile.v"
 
 module CPU(
       input  wire        clk,
       input  wire        reset,
       output reg  [63:0] mem_addr,
       inout       [63:0] mem_data,
-      output wire [63:0]  LED,
+      output reg  [ 7:0] mem_mask,
       output reg         rw
 );
    reg  [63:0] pc     = 0;
+   reg  [63:0] mdata  = 0;
    reg  [31:0] instr  = 0;
-   reg  [31:0] mdata  = 0;
    wire [4:0]  rs1    = instr[19:15];
    wire [4:0]  rs2    = instr[24:20];
    wire [4:0]  rd     = instr[11: 7];
@@ -18,20 +18,18 @@ module CPU(
    wire [63:0] rs2_data;
    reg  [63:0] rd_data  = 0;
    reg         write_rd = 0;
-   assign      mem_data = rw ? mdata : 'bz;
+   assign      mem_data = rw ? mdata : 64'bz;
 
    RegisterFile regitserfile(
       .clk(clk),
       .rd(rd),
       .write_data(rd_data),
-      .we(write_rd),
+      .we(write_rd), 
       .rs1(rs1),
       .data1(rs1_data),
       .rs2(rs2),
       .data2(rs2_data)
    );
-
-   //       1111111000100000100111101_1100011
 
    wire isALUreg =  (instr[6:0] == 7'b0110011); // rd <- rs1 OP rs2   
    wire isALUimm =  (instr[6:0] == 7'b0010011); // rd <- rs1 OP Iimm
@@ -45,26 +43,47 @@ module CPU(
    wire isSYSTEM =  (instr[6:0] == 7'b1110011); // special
 
    wire [2:0] funct3 = instr[14:12];
+   /* verilator lint_off UNUSEDSIGNAL */
    wire [6:0] funct7 = instr[31:25];
+   /* verilator lint_on UNUSEDSIGNAL */
 
-   wire [31:0] Uimm = {    instr[31],   instr[30:12], {12{1'b0}}};
-   wire [31:0] Iimm = {{21{instr[31]}}, instr[30:20]};
-   wire [31:0] Simm = {{21{instr[31]}}, instr[30:25],instr[11:7]};
+   wire [63:0] Uimm = {{33{instr[31]}},   instr[30:12], {12{1'b0}}};
+   wire [63:0] Iimm = {{53{instr[31]}}, instr[30:20]};
+   wire [63:0] Simm = {{53{instr[31]}}, instr[30:25],instr[11:7]};
 
    localparam READ  = 0;
    localparam WRITE = 1;
    reg takeBranch;
 
-   wire [31:0] aluIn2 = isALUreg ? rs2_data : Iimm;
+   wire [63:0] aluIn2   = isALUreg | isBranch ? rs2_data : Iimm;
+   wire [64:0] aluMinus = {1'b1, ~aluIn2} + {1'b0,rs1_data} + 65'b1;
+   wire        EQ  = (aluMinus[63:0] == 0);
+   wire        LTU = aluMinus[64]; 
+   wire        LT  = (rs1_data[63] ^ aluIn2[63]) ? rs1_data[63] : aluMinus[64];
+   wire [63:0] aluPlus = rs1_data + aluIn2;
    wire [4:0] shamt = isALUreg ? rs2[4:0] : instr[24:20]; // shift amount
+   
+   wire [63:0] LDaddr = rs1_data + (isStore ? Simm : Iimm);
+   wire [31:0] LOAD_word =
+          LDaddr[2] ? mem_data[63:32] : mem_data[31:0];
+   wire [15:0] LOAD_halfword =
+          LDaddr[1] ? LOAD_word[31:16] : LOAD_word[15:0];
+   wire  [7:0] LOAD_byte =
+          LDaddr[0] ? LOAD_halfword[15:8] : LOAD_halfword[7:0];
 
    // ADD(x10,x0,x0);
    localparam FETCH_INSTR = 0;
    localparam WAIT_INSTR  = 1;
    localparam WAIT_DATA   = 2;
-   localparam EXECUTE     = 3;
+   localparam WAIT_REGS   = 3;
+   localparam EXECUTE     = 4;
    reg [2:0] state = FETCH_INSTR;
    always @(posedge clk) begin
+      if (reset) begin
+         state <= FETCH_INSTR;
+         pc    <= 0;
+      end
+
       case(state)
          FETCH_INSTR: begin
             write_rd <= 0;
@@ -77,19 +96,27 @@ module CPU(
             state <= WAIT_DATA;
          end
          WAIT_DATA: begin
+            if (isLoad) begin
+               $display("Load");
+               mem_addr <= LDaddr;
+               state <= WAIT_REGS;
+            end else begin
+               state <= EXECUTE;
+            end
+         end
+         WAIT_REGS: begin
             state <= EXECUTE;
          end
          EXECUTE: begin
             if (isALUreg || isALUimm) begin
                case(funct3)
-                  3'b000: rd_data <= (funct7[5] & instr[5]) ? 
-                     (rs1_data - aluIn2) : (rs1_data + aluIn2);
+                  3'b000: rd_data <= (funct7[5] & instr[5]) ? aluMinus[63:0] : aluPlus;
                   3'b001: rd_data <= rs1_data << shamt;
-                  3'b010: rd_data <= ($signed(rs1_data) < $signed(aluIn2));
-                  3'b011: rd_data <= (rs1_data < aluIn2);
+                  3'b010: rd_data <= {63'b0, LT};
+                  3'b011: rd_data <= {63'b0, LTU};
                   3'b100: rd_data <= (rs1_data ^ aluIn2);
-                  3'b101: rd_data <= funct7[5]? ($signed(rs1_data) >>> shamt) : 
-                     ($signed(rs1_data) >> shamt); 
+                  3'b101: rd_data <= funct7[5]? ($signed(rd_data) >>> shamt) : 
+                        ($signed(rs1_data) >> shamt); 
                   3'b110: rd_data <= (rs1_data | aluIn2);
                   3'b111: rd_data <= (rs1_data & aluIn2); 
                endcase
@@ -103,7 +130,7 @@ module CPU(
             end else if (isJALR) begin
                rd_data <= pc;
                write_rd <= 1;
-               pc <= pc + rs1 + Iimm;
+               pc <= pc + rs1_data + Iimm;
             end else if (isLUI) begin
                rd_data <= Uimm;
                write_rd <= 1;
@@ -114,10 +141,33 @@ module CPU(
                pc <= pc + Uimm;
             end else if (isBranch) begin
                if (takeBranch)
-                  pc = pc + {{52{instr[31]}}, instr[7],instr[30:25],instr[11:8],1'b0};
+                  pc <= pc + {{52{instr[31]}}, instr[7],instr[30:25],instr[11:8],1'b0};
                else 
-                  pc = pc + 4;
-            end
+                  pc <= pc + 4;
+            end else if (isStore) begin
+               mem_addr <= LDaddr;
+               mdata <= rs2_data;
+               case(funct3) 
+                  3'b000: mem_mask <= LDaddr[2] ? (LDaddr[1] ? (LDaddr[0] ? 8'b10000000 : 8'b01000000) : (LDaddr[0] ? 8'b00100000 : 8'b00010000)) :
+                                                         (LDaddr[1] ? (LDaddr[0] ? 8'b00001000 : 8'b00000100) : (LDaddr[0] ? 8'b00000010 : 8'b00000001));
+                  3'b001: mem_mask <= LDaddr[1] ? (LDaddr[0] ? 8'b11000000 : 8'b0011) : (LDaddr[0] ? 8'b00001100 : 8'b0011);
+                  3'b010: mem_mask <= LDaddr[1] ? 8'b11110000 : 8'b00001111;
+                  3'b011: mem_mask <= 8'b11111111;
+                  default: ;
+               endcase
+               
+               rw <= WRITE;
+               pc <= pc + 4;
+            end else if (isLoad) begin
+               case(funct3[1:0]) 
+                  2'b00: rd_data <= {{56{LOAD_byte[7]}}, LOAD_byte};
+                  2'b01: rd_data <= {{48{LOAD_halfword[15]}}, LOAD_halfword};
+                  2'b10: rd_data <= {{32{LOAD_word[31]}}, LOAD_word};
+                  2'b11: rd_data <= mem_data;
+               endcase
+               write_rd <= 1;
+               pc <= pc + 4;
+            end 
 `ifdef BENCH
             else if(isSYSTEM) begin
                $display("Finished correctly");
@@ -135,15 +185,13 @@ module CPU(
 
    always @(*) begin
       case(funct3)
-         3'b000: takeBranch = (rs1_data == rs2_data);
-         3'b001: takeBranch = (rs1_data != rs2_data);
-         3'b100: takeBranch = ($signed(rs1_data) < $signed(rs2_data));
-         3'b101: takeBranch = ($signed(rs1_data) >= $signed(rs2_data));
-         3'b110: takeBranch = (rs1_data < rs2_data);
-         3'b111: takeBranch = (rs1_data >= rs2_data);
+         3'b000: takeBranch = EQ;
+         3'b001: takeBranch = !EQ;
+         3'b100: takeBranch = LT;
+         3'b101: takeBranch = !LT;
+         3'b110: takeBranch = LTU;
+         3'b111: takeBranch = !LTU;
          default: takeBranch = 1'b0;
       endcase
    end
-
-   assign LED = pc;
 endmodule

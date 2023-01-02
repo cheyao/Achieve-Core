@@ -11,7 +11,6 @@ module bench();
 
    initial begin
       clk = 0;
-      $monitor("LED: %b", led);
       #5000 
       $display("Timed out!");
       $finish;
@@ -23,7 +22,6 @@ module bench();
 
    SOC soc(
       .clk(clk),
-      .reset(reset),
-      .LED(led)
+      .reset(reset)
    );
 endmodule  
