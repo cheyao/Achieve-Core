@@ -31,16 +31,18 @@ module CPU(
       .data2(rs2_data)
    );
 
-   wire isALUreg =  (instr[6:0] == 7'b0110011); // rd <- rs1 OP rs2   
-   wire isALUimm =  (instr[6:0] == 7'b0010011); // rd <- rs1 OP Iimm
-   wire isBranch =  (instr[6:0] == 7'b1100011); // if(rs1 OP rs2) PC<-PC+Bimm
-   wire isJALR   =  (instr[6:0] == 7'b1100111); // rd <- PC+4; PC<-rs1+Iimm
-   wire isJAL    =  (instr[6:0] == 7'b1101111); // rd <- PC+4; PC<-PC+Jimm
-   wire isAUIPC  =  (instr[6:0] == 7'b0010111); // rd <- PC + Uimm
-   wire isLUI    =  (instr[6:0] == 7'b0110111); // rd <- Uimm   
-   wire isLoad   =  (instr[6:0] == 7'b0000011); // rd <- mem[rs1+Iimm]
-   wire isStore  =  (instr[6:0] == 7'b0100011); // mem[rs1+Simm] <- rs2
-   wire isSYSTEM =  (instr[6:0] == 7'b1110011); // special
+   wire isALUreg   = (instr[6:0] == 7'b0110011); // rd <- rs1 OP rs2   
+   wire isALUreg32 = (instr[6:0] == 7'b0111011);
+   wire isALUimm   = (instr[6:0] == 7'b0010011); // rd <- rs1 OP Iimm
+   wire isALUimm32 = (instr[6:0] == 7'b0011011);
+   wire isBranch   = (instr[6:0] == 7'b1100011); // if(rs1 OP rs2) PC<-PC+Bimm
+   wire isJALR     = (instr[6:0] == 7'b1100111); // rd <- PC+4; PC<-rs1+Iimm
+   wire isJAL      = (instr[6:0] == 7'b1101111); // rd <- PC+4; PC<-PC+Jimm
+   wire isAUIPC    = (instr[6:0] == 7'b0010111); // rd <- PC + Uimm
+   wire isLUI      = (instr[6:0] == 7'b0110111); // rd <- Uimm   
+   wire isLoad     = (instr[6:0] == 7'b0000011); // rd <- mem[rs1+Iimm]
+   wire isStore    = (instr[6:0] == 7'b0100011); // mem[rs1+Simm] <- rs2
+   wire isSYSTEM   = (instr[6:0] == 7'b1110011); // special
 
    wire [2:0] funct3 = instr[14:12];
    /* verilator lint_off UNUSEDSIGNAL */
@@ -61,7 +63,7 @@ module CPU(
    wire        LTU = aluMinus[64]; 
    wire        LT  = (rs1_data[63] ^ aluIn2[63]) ? rs1_data[63] : aluMinus[64];
    wire [63:0] aluPlus = rs1_data + aluIn2;
-   wire [4:0] shamt = isALUreg ? rs2[4:0] : instr[24:20]; // shift amount
+   wire [5:0] shamt = (isALUimm | isALUimm32) ? instr[25:20] : {1'b0, rs2_data[4:0]}; // isALUreg32  ? : ; // shift amount
    
    wire [63:0] LDaddr = rs1_data + (isStore ? Simm : Iimm);
    wire [31:0] LOAD_word =
@@ -84,6 +86,8 @@ module CPU(
          pc    <= 0;
       end
 
+      $display("Mdata = %b", mem_data);
+
       case(state)
          FETCH_INSTR: begin
             write_rd <= 0;
@@ -97,8 +101,9 @@ module CPU(
          end
          WAIT_DATA: begin
             if (isLoad) begin
-               $display("Load");
                mem_addr <= LDaddr;
+               state <= WAIT_REGS;
+            end else if (isSYSTEM) begin
                state <= WAIT_REGS;
             end else begin
                state <= EXECUTE;
@@ -108,7 +113,7 @@ module CPU(
             state <= EXECUTE;
          end
          EXECUTE: begin
-            if (isALUreg || isALUimm) begin
+            if (isALUreg || isALUimm || isALUreg32 || isALUimm32) begin
                case(funct3)
                   3'b000: rd_data <= (funct7[5] & instr[5]) ? aluMinus[63:0] : aluPlus;
                   3'b001: rd_data <= rs1_data << shamt;
@@ -147,13 +152,14 @@ module CPU(
             end else if (isStore) begin
                mem_addr <= LDaddr;
                mdata <= rs2_data;
+
                case(funct3) 
                   3'b000: mem_mask <= LDaddr[2] ? (LDaddr[1] ? (LDaddr[0] ? 8'b10000000 : 8'b01000000) : (LDaddr[0] ? 8'b00100000 : 8'b00010000)) :
                                                          (LDaddr[1] ? (LDaddr[0] ? 8'b00001000 : 8'b00000100) : (LDaddr[0] ? 8'b00000010 : 8'b00000001));
                   3'b001: mem_mask <= LDaddr[1] ? (LDaddr[0] ? 8'b11000000 : 8'b0011) : (LDaddr[0] ? 8'b00001100 : 8'b0011);
                   3'b010: mem_mask <= LDaddr[1] ? 8'b11110000 : 8'b00001111;
                   3'b011: mem_mask <= 8'b11111111;
-                  default: ;
+                  default: mem_mask <= 8'b0;
                endcase
                
                rw <= WRITE;
@@ -172,11 +178,11 @@ module CPU(
             else if(isSYSTEM) begin
                $display("Finished correctly");
                $finish;
+            end else begin
+               $display("Unknown command: %x", instr);
+               $finish;
             end
 `endif
-            else begin
-               pc <= pc + 4;
-            end
 
             state <= FETCH_INSTR;
          end
