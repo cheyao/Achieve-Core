@@ -1,32 +1,18 @@
-SOC_SOURCES := $(wildcard SOC/*.v)
-C_SOURCES := $(wildcard prog/src/*.c)
-ASM_SOURCES := $(wildcard prog/src/*.S)
-OBJ := $(subst prog/src/,build/,$(C_SOURCES:.c=.o)) $(subst prog/src/,build/,$(ASM_SOURCES:.S=.o) )
+VERILATOR ?= verilator
+CXXFLAGS := -L/usr/local/lib -lSDL2 -I build -MMD -I/usr/local/Cellar/verilator/5.004/share/verilator/include -I/usr/local/Cellar/verilator/5.004/share/verilator/include/vltstd \
+			-DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -faligned-new -fbracket-depth=4096 -fcf-protection=none -Qunused-arguments \
+			-Wno-bool-operation -Wno-tautological-bitwise-compare -Wno-parentheses-equality -Wno-sign-compare -Wno-uninitialized -Wno-unused-parameter -Wno-unused-variable \
+			-Wno-shadow -std=gnu++14
+CXX ?= clang++
+MAKE ?= make
 
-IVERILOG := /usr/local/bin/iverilog
-CC := /usr/local/bin/riscv64-unknown-elf-gcc
-CFLAGS := -march=rv64id -c -ffreestanding
-AS := /usr/local/bin/riscv64-unknown-elf-as
-ASFLAGS := -march=rv64id -c
-LD := /usr/local/bin/riscv64-unknown-elf-ld
-LDFLAGS := -T prog/link.ld -m elf64lriscv -nostdlib
-HEXTOTEXT := /usr/local/bin/hextotext # Special util to convert risc-v elf to hex
+all: build/bench Achieve-BIOS/AchieveBIOS.hex
 
-all: build/bench
+build/bench: $(SOC_SOURCES) bench.cpp
+	$(VERILATOR) SOC/SOC.v --cc --top-module SOC -Mdir build --build -j 0 -Wall bench.cpp -DBENCH
+	$(CXX) $(CXXFLAGS) -O2 -c -o build/bench.o bench.cpp
+	$(CXX) build/bench.o build/verilated.o build/verilated_threads.o build/VSOC__ALL.o -pthread -lpthread -o build/VSOC -std=c++20 -L/usr/local/lib -lSDL2
+# -O3 --x-assign fast --x-initial fast --noassert 
 
-build/bench: $(SOC_SOURCES)
-	mkdir -pv build
-	$(IVERILOG) -o $@ SOC/bench.v
-
-prog: $(OBJ)
-	@echo "Sources: $^"
-	mkdir -pv build
-	$(LD) $(LDFLAGS) -o build/prog.elf $^
-
-build/%.o: prog/src/%.S
-	mkdir -pv build
-	$(AS) $(ASFLAGS) -o $@ $<
-
-build/%.o: prog/src/%.c
-	mkdir -pv build
-	$(CC) $(CFLAGS) -o $@ $<
+Achieve-BIOS/AchieveBIOS.hex: $(wildcard Achieve-BIOS/*) $(wildcard Achieve-BIOS/**/*) $(wildcard Achieve-BIOS/**/**/*) $(wildcard Achieve-BIOS/**/**/**/*)
+	$(MAKE) -C Achieve-BIOS

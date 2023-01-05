@@ -86,8 +86,6 @@ module CPU(
          pc    <= 0;
       end
 
-      $display("Mdata = %b", mem_data);
-
       case(state)
          FETCH_INSTR: begin
             write_rd <= 0;
@@ -151,7 +149,15 @@ module CPU(
                   pc <= pc + 4;
             end else if (isStore) begin
                mem_addr <= LDaddr;
-               mdata <= rs2_data;
+               if (LDaddr[63]) begin
+                  mdata[15:0] <= rs2_data[15:0];
+               end else begin
+                  mdata[7:0] <= rs2_data[7:0];
+                  mdata[15: 8] = loadstore_addr[0] ? rs2[7:0]  : rs2[15: 8];
+                  mdata[23:16] = loadstore_addr[1] ? rs2[7:0]  : rs2[23:16];
+                  mdata[31:24] = loadstore_addr[0] ? rs2[7:0]  :
+                        loadstore_addr[1] ? rs2[15:8] : rs2[31:24];
+               end
 
                case(funct3) 
                   3'b000: mem_mask <= LDaddr[2] ? (LDaddr[1] ? (LDaddr[0] ? 8'b10000000 : 8'b01000000) : (LDaddr[0] ? 8'b00100000 : 8'b00010000)) :
