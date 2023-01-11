@@ -3,9 +3,10 @@
 module CPU(
       input  wire        clk,
       input  wire        reset,
-      output reg  [63:0] mem_addr,
-      inout       [63:0] mem_data,
+      output reg  [47:0] mem_addr,
+      inout  wire [63:0] mem_data,
       output reg  [ 7:0] mem_mask,
+      output reg  [ 5:0] mem_shift,
       output reg         rw
 );
    reg  [63:0] pc     = 0;
@@ -65,7 +66,7 @@ module CPU(
    wire [63:0] aluPlus = rs1_data + aluIn2;
    wire [5:0] shamt = (isALUimm | isALUimm32) ? instr[25:20] : {1'b0, rs2_data[4:0]}; // isALUreg32  ? : ; // shift amount
    
-   wire [63:0] LDaddr = rs1_data + (isStore ? Simm : Iimm);
+   wire [47:0] LDaddr = {rs1_data + (isStore ? Simm : Iimm)}[47:0];
    wire [31:0] LOAD_word =
           LDaddr[2] ? mem_data[63:32] : mem_data[31:0];
    wire [15:0] LOAD_halfword =
@@ -76,9 +77,10 @@ module CPU(
    // ADD(x10,x0,x0);
    localparam FETCH_INSTR = 0;
    localparam WAIT_INSTR  = 1;
-   localparam WAIT_DATA   = 2;
+   localparam FETCH_REGS  = 2;
    localparam WAIT_REGS   = 3;
-   localparam EXECUTE     = 4;
+   localparam WAIT_REGS2  = 4;
+   localparam EXECUTE     = 5;
    reg [2:0] state = FETCH_INSTR;
    always @(posedge clk) begin
       if (reset) begin
@@ -89,28 +91,28 @@ module CPU(
       case(state)
          FETCH_INSTR: begin
             write_rd <= 0;
-            mem_addr <= pc;
+            mem_addr <= pc[47:0];
             rw       <= READ;
             state    <= WAIT_INSTR;
          end
-         WAIT_INSTR: begin
-            instr <= pc[2] ? mem_data[63:32] : mem_data[31:0];
-            state <= WAIT_DATA;
+         WAIT_INSTR: begin 
+            state    <= FETCH_REGS;
          end
-         WAIT_DATA: begin
+         FETCH_REGS: begin
+            instr <= pc[2] ? mem_data[63:32] : mem_data[31:0];
             if (isLoad) begin
-               mem_addr <= LDaddr;
-               state <= WAIT_REGS;
-            end else if (isSYSTEM) begin
-               state <= WAIT_REGS;
-            end else begin
-               state <= EXECUTE;
-            end
+               mem_addr <= LDaddr[47:0];
+            end 
+            state <= WAIT_REGS;
          end
          WAIT_REGS: begin
-            state <= EXECUTE;
+            state    <= WAIT_REGS2;
+         end
+         WAIT_REGS2: begin
+            state    <= EXECUTE;
          end
          EXECUTE: begin
+            // $display("Executing: %x", instr);
             if (isALUreg || isALUimm || isALUreg32 || isALUimm32) begin
                case(funct3)
                   3'b000: rd_data <= (funct7[5] & instr[5]) ? aluMinus[63:0] : aluPlus;
@@ -130,10 +132,14 @@ module CPU(
                rd_data <= pc;
                write_rd <= 1;
                pc <= pc + {{44{instr[31]}}, instr[19:12],instr[20],instr[30:21],1'b0}; // Jmm
+               $display("Jump to %h", pc + {{44{instr[31]}}, instr[19:12],instr[20],instr[30:21],1'b0});
             end else if (isJALR) begin
                rd_data <= pc;
                write_rd <= 1;
                pc <= pc + rs1_data + Iimm;
+               $display("Jumpr to %h", pc + rs1_data + Iimm);
+               $display("%d rs1 %d", rs1, rs1_data);
+               $display("imm %d", Iimm);
             end else if (isLUI) begin
                rd_data <= Uimm;
                write_rd <= 1;
@@ -148,25 +154,24 @@ module CPU(
                else 
                   pc <= pc + 4;
             end else if (isStore) begin
-               mem_addr <= LDaddr;
-               if (LDaddr[63]) begin
+               // $display("Store %h at %h, pc = %h", LDaddr, rs2_data, pc);
+               if (LDaddr[47]) begin
                   mdata[15:0] <= rs2_data[15:0];
+                  mem_addr[47:0] <= LDaddr[47:0];
                end else begin
-                  mdata[7:0] <= rs2_data[7:0];
-                  mdata[15: 8] = loadstore_addr[0] ? rs2[7:0]  : rs2[15: 8];
-                  mdata[23:16] = loadstore_addr[1] ? rs2[7:0]  : rs2[23:16];
-                  mdata[31:24] = loadstore_addr[0] ? rs2[7:0]  :
-                        loadstore_addr[1] ? rs2[15:8] : rs2[31:24];
-               end
+                  case(funct3) 
+                     3'b000: mem_mask <= LDaddr[2] ? (LDaddr[1] ? (LDaddr[0] ? 8'b10000000 : 8'b01000000) : (LDaddr[0] ? 8'b00100000 : 8'b00010000)) :
+                                                            (LDaddr[1] ? (LDaddr[0] ? 8'b00001000 : 8'b00000100) : (LDaddr[0] ? 8'b00000010 : 8'b00000001));
+                     3'b001: mem_mask <= LDaddr[1] ? (LDaddr[0] ? 8'b11000000 : 8'b0011) : (LDaddr[0] ? 8'b00001100 : 8'b0011);
+                     3'b010: mem_mask <= LDaddr[1] ? 8'b11110000 : 8'b00001111;
+                     3'b011: mem_mask <= 8'b11111111;
+                     default: mem_mask <= 8'b0;
+                  endcase
 
-               case(funct3) 
-                  3'b000: mem_mask <= LDaddr[2] ? (LDaddr[1] ? (LDaddr[0] ? 8'b10000000 : 8'b01000000) : (LDaddr[0] ? 8'b00100000 : 8'b00010000)) :
-                                                         (LDaddr[1] ? (LDaddr[0] ? 8'b00001000 : 8'b00000100) : (LDaddr[0] ? 8'b00000010 : 8'b00000001));
-                  3'b001: mem_mask <= LDaddr[1] ? (LDaddr[0] ? 8'b11000000 : 8'b0011) : (LDaddr[0] ? 8'b00001100 : 8'b0011);
-                  3'b010: mem_mask <= LDaddr[1] ? 8'b11110000 : 8'b00001111;
-                  3'b011: mem_mask <= 8'b11111111;
-                  default: mem_mask <= 8'b0;
-               endcase
+                  mem_addr <= LDaddr;
+                  mem_shift <= 0;
+                  mdata <= rs2_data;
+               end
                
                rw <= WRITE;
                pc <= pc + 4;
@@ -185,7 +190,7 @@ module CPU(
                $display("Finished correctly");
                $finish;
             end else begin
-               $display("Unknown command: %x", instr);
+               $display("Unknown command: %h", instr);
                $finish;
             end
 `endif
