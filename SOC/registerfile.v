@@ -15,10 +15,9 @@ module RegisterFile(
    end
 
    always @(posedge clk) begin
-      if (we && rd != 0) begin
-         registers[rd] <= write_data; $display("ra = %h", registers[1]); end
+      if (we && rd != 0) 
+         registers[rd] <= write_data;
 
-      $display("rs1: %d %h", rs1, registers[rs1]);
       data1 <= registers[rs1];
       data2 <= registers[rs2];
    end

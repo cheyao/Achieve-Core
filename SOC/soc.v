@@ -41,8 +41,6 @@ module SOC (
    always @(posedge clk) begin
       if (isIO)
          $display("IO at addr %h data %h", mem_addr[15:0], mem_data[15:0]);
-      //else 
-         // $display("Not IO %h", mem_addr);
    end
 
    Memory memory( // (Should be) Extern memory

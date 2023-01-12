@@ -20,6 +20,7 @@ module CPU(
    reg  [63:0] rd_data  = 0;
    reg         write_rd = 0;
    assign      mem_data = rw ? mdata : 64'bz;
+   wire [63:0] pcnext = pc + 4;
 
    RegisterFile regitserfile(
       .clk(clk),
@@ -86,7 +87,7 @@ module CPU(
       if (reset) begin
          state <= FETCH_INSTR;
          pc    <= 0;
-      end
+      end else
 
       case(state)
          FETCH_INSTR: begin
@@ -112,7 +113,7 @@ module CPU(
             state    <= EXECUTE;
          end
          EXECUTE: begin
-            // $display("Executing: %x", instr);
+            $display("Executing: %x", instr);
             if (isALUreg || isALUimm || isALUreg32 || isALUimm32) begin
                case(funct3)
                   3'b000: rd_data <= (funct7[5] & instr[5]) ? aluMinus[63:0] : aluPlus;
@@ -127,23 +128,23 @@ module CPU(
                endcase
 
                write_rd <= 1;
-               pc <= pc + 4;
+               pc <= pcnext;
             end else if (isJAL) begin
-               rd_data <= pc;
+               rd_data <= pcnext;
                write_rd <= 1;
                pc <= pc + {{44{instr[31]}}, instr[19:12],instr[20],instr[30:21],1'b0}; // Jmm
                $display("Jump to %h", pc + {{44{instr[31]}}, instr[19:12],instr[20],instr[30:21],1'b0});
             end else if (isJALR) begin
-               rd_data <= pc;
+               rd_data <= pcnext;
                write_rd <= 1;
-               pc <= pc + rs1_data + Iimm;
-               $display("Jumpr to %h", pc + rs1_data + Iimm);
+               pc <= rs1_data + Iimm;
+               $display("Jumpr to %h", rs1_data + Iimm);
                $display("%d rs1 %d", rs1, rs1_data);
                $display("imm %d", Iimm);
             end else if (isLUI) begin
                rd_data <= Uimm;
                write_rd <= 1;
-               pc <= pc + 4;
+               pc <= pcnext;
             end else if (isAUIPC) begin
                rd_data <= Uimm;
                write_rd <= 1;
@@ -152,7 +153,7 @@ module CPU(
                if (takeBranch)
                   pc <= pc + {{52{instr[31]}}, instr[7],instr[30:25],instr[11:8],1'b0};
                else 
-                  pc <= pc + 4;
+                  pc <= pcnext;
             end else if (isStore) begin
                // $display("Store %h at %h, pc = %h", LDaddr, rs2_data, pc);
                if (LDaddr[47]) begin
@@ -174,7 +175,7 @@ module CPU(
                end
                
                rw <= WRITE;
-               pc <= pc + 4;
+               pc <= pcnext;
             end else if (isLoad) begin
                case(funct3[1:0]) 
                   2'b00: rd_data <= {{56{LOAD_byte[7]}}, LOAD_byte};
@@ -183,7 +184,7 @@ module CPU(
                   2'b11: rd_data <= mem_data;
                endcase
                write_rd <= 1;
-               pc <= pc + 4;
+               pc <= pcnext;
             end 
 `ifdef BENCH
             else if(isSYSTEM) begin
