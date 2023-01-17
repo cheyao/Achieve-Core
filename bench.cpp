@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
   SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED); 
   SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-  std::thread screen_thread(veri, argc, argv);
+  std::thread thread(veri, argc, argv);
 
   SDL_Event event;
   while (1) {
@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
     SDL_Delay(100);
   }
 
-  screen_thread.join();
+  thread.join();
   SDL_DestroyTexture(texture);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
@@ -58,11 +58,13 @@ void veri(int argc, char** argv) {
     top->eval(); // 0
     if (top->IOenable) {
       switch (top->port) {
-        case 0 ... SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(Uint16): {
+        case 0 ... (SCREEN_WIDTH * SCREEN_HEIGHT): {
           pixels[top->port] = top->data;
+          break;
         }
         default: {
           std::cout << "Unhandled IO " << top->port << std::endl;
+          break;
         }
       }
     }

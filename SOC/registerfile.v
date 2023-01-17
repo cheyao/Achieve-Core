@@ -8,14 +8,13 @@ module RegisterFile(
    input  wire [4:0]  rs2,
    output reg  [63:0] data2
 );
-   reg [63:0] registers [0:31];
 
    initial begin
       registers[0] = 0;
    end
 
    always @(posedge clk) begin
-      if (we && rd != 0) 
+      if (we && rd != 0)
          registers[rd] <= write_data;
 
       data1 <= registers[rs1];

@@ -20,7 +20,7 @@ module SOC (
    /* verilator lint_on UNUSEDSIGNAL */
    wire [63:0] mem_data;
    wire [ 7:0] mem_mask; 
-   wire [ 5:0] shift; 
+   wire [ 2:0] shift; 
    wire isIO  = mem_addr[47];
    wire isRAM = !isIO;
 
@@ -38,14 +38,9 @@ module SOC (
       .rw(rw)
    ); 
 
-   always @(posedge clk) begin
-      if (isIO)
-         $display("IO at addr %h data %h", mem_addr[15:0], mem_data[15:0]);
-   end
-
    Memory memory( // (Should be) Extern memory
       .clk(clk),
-      .addr(mem_addr[13:3]),
+      .addr(mem_addr[23:3]),
       .data(mem_data),
       .mask(mem_mask),
       .shift(shift),
