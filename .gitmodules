@@ -1,3 +1,6 @@
 [submodule "Achieve-BIOS"]
 	path = Achieve-BIOS
 	url = https://github.com/cheyao/Achieve-BIOS
+[submodule "AchieveOS"]
+	path = AchieveOS
+	url = https://github.com/cheyao/AchieveOS
