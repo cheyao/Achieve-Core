@@ -19,8 +19,6 @@ module SOC (
    output wire       rw
 );
    wire [63:0] mem_addr;
-   wire [ 7:0] mem_mask; 
-   wire [ 2:0] shift; 
    wire   isBIOS = mem_addr[63:16] == 48'hFFFFFFFFFFFF;
    assign isIO   = mem_addr[63:32] == 32'hFFFFFFFF & !isBIOS;
    wire   isRAM  = !isIO;
@@ -32,8 +30,6 @@ module SOC (
       .reset(reset),
       .mem_addr(mem_addr),
       .mem_data(data),
-      .mem_shift(shift),
-      .mem_mask(mem_mask),
       .size(size),
       .pulse(pulse),
       .rw(rw)
@@ -41,10 +37,9 @@ module SOC (
 
    Memory memory( // (Should be) Extern memory
       .clk(clk),
-      .addr(mem_addr[23:3]),
+      .addr(mem_addr[23:0]),
       .data(data),
-      .mask(mem_mask),
-      .shift(shift),
+      .size(size),
       .rw(rw),
       .enable(isRAM) // Don't write on IO
    );

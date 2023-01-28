@@ -5,13 +5,21 @@
 #include <SDL2/SDL.h>
 #include <cstdio>
 
+using namespace std;
+
+#define DEBUG
+#ifdef DEBUG
+#define DPRINT(str) do { std::cout << str << std::endl; } while( false )
+#else
+#define DPRINT(str) do { } while ( false )
+#endif
+
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 768
 
-using namespace std;
-
 Uint16 *pixels = new Uint16[SCREEN_WIDTH * SCREEN_HEIGHT];
 void veri(int argc, char** argv);
+bool finish;
 
 int main(int argc, char** argv) {
   SDL_Init(SDL_INIT_VIDEO);
@@ -33,6 +41,7 @@ int main(int argc, char** argv) {
     SDL_Delay(100);
   }
 
+  finish = true;
   thread.join();
   SDL_DestroyTexture(texture);
   SDL_DestroyRenderer(renderer);
@@ -65,7 +74,7 @@ void veri(int argc, char** argv) {
   // SDL window
   memset(pixels, 0, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(Uint16));
 
-  while (!contextp->gotFinish()) { 
+  while (!contextp->gotFinish() && !finish) { 
     top->clk = !top->clk; 
     top->eval(); // 0
     top->clk = !top->clk;
@@ -84,14 +93,14 @@ void veri(int argc, char** argv) {
           if (top->pulse == READ){
             buffer = 0;
 
-            if (fread(&buffer, top->size, 1, disk) != 1)
-              cout << "Error while reading size " << (int) top->size << " at " << ftell(disk) << endl;
+            if (fread(&buffer, (top->size / 2 + 1), 1, disk) != 1)
+              DPRINT("Error while reading size " << hex << (int) top->size / 2 + 1 << " at " << hex << ftell(disk) - (top->size / 2 + 1));
 
             top->data = buffer;
-            cout << "read of size " << (int) top->size << " at " << ftell(disk) << " = " << buffer << endl;
+            DPRINT("read of size " << hex << (int) (top->size / 2 + 1) << " at " << hex << ftell(disk) - (top->size / 2 + 1) << " = " << buffer);
           } else {
-            fwrite(&top->data, top->size, 1, disk);
-            cout << "write of size " << (int) top->size << " at " << ftell(disk) << " = " << top->data << endl;
+            fwrite(&top->data, top->size / 2 + 1, 1, disk);
+            DPRINT("write of size " << hex << (int) (top->size / 2 + 1) << " at " << hex << ftell(disk) - (top->size / 2 + 1) << " = " << top->data);
           }
 
           break;
@@ -101,7 +110,7 @@ void veri(int argc, char** argv) {
             top->data = ftell(disk);
           } else {
             fseek(disk, top->data, SEEK_SET);
-            std::cout << "seek " << top->data << std::endl;
+            DPRINT("seek " << hex << top->data);
           }
 
           break;
@@ -122,13 +131,13 @@ void veri(int argc, char** argv) {
           if (top->pulse == READ)
             top->data = 0;
           else {
-            std::cout << (char) top->data;
+            cout << (char) top->data << flush;
           }
 
           break;
         }
         default: {
-          std::cout << "Unhandled IO " << top->port << std::endl;
+          DPRINT("Unhandled IO " << hex << top->port);
           break;
         }
       }

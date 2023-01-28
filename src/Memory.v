@@ -1,15 +1,15 @@
 module Memory(
    input        clk,
-   input [23:3] addr,
+   input [23:0] addr,
    inout [63:0] data,
-   input [ 7:0] mask,
-   input [ 2:0] shift,
+   input [ 3:0] size,
    input        rw,
    input        enable
 );
-   reg [63:0] MEM [0:1048576]; // 1Mib of ram
+   reg [63:0] MEM [0:1048576]; // 8Mibs of ram
    reg [63:0] d;
-   wire [63:0] write_data = data << shift;
+   wire [63:0] write_data = data << {addr[2:0], 3'b0};
+   wire [7:0] mask = {{4{size[3]}}, {2{size[2]}}, {size[1]}, {size[0]}} << addr[2:0];
 
    always @(posedge clk) begin
       if (rw & enable) begin // Write

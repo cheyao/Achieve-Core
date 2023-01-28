@@ -1,12 +1,11 @@
 // `define DEBUG
+`define NON_SYNTH
 
 module CPU (
       input  wire        clk,
       input  wire        reset,
       output reg  [63:0] mem_addr,
       inout  wire [63:0] mem_data,
-      output reg  [ 7:0] mem_mask,
-      output reg  [ 2:0] mem_shift,
       output reg  [ 3:0] size,
       output reg  [ 1:0] pulse,
       output reg         rw
@@ -100,9 +99,9 @@ module CPU (
             if (isLoad) begin
                case(funct3[1:0]) 
                   2'b00: size <= 1;
-                  2'b01: size <= 2;
-                  2'b10: size <= 4;
-                  2'b11: size <= 8;
+                  2'b01: size <= 3;
+                  2'b10: size <= 7;
+                  2'b11: size <= 15;
                endcase
 
                mem_addr <= LDaddr;
@@ -162,32 +161,17 @@ module CPU (
                else 
                   pc <= pcnext;
             end else if (isStore) begin
-               if (isIO) begin
-                  mdata[15:0] <= rs2_data[15:0];
-                  mem_addr[47:0] <= LDaddr[47:0];
-                  case(funct3) 
-                     3'b000: size <= 1;
-                     3'b001: size <= 2;
-                     3'b010: size <= 4;
-                     3'b011: size <= 8;
-                     default: size <= 0;
-                  endcase
-               end else begin
-                  case(funct3) 
-                     3'b000: mem_mask <= LDaddr[2] ? (LDaddr[1] ? (LDaddr[0] ? 8'b10000000 : 8'b01000000) : (LDaddr[0] ? 8'b00100000 : 8'b00010000)) :
-                                                            (LDaddr[1] ? (LDaddr[0] ? 8'b00001000 : 8'b00000100) : (LDaddr[0] ? 8'b00000010 : 8'b00000001));
-                     3'b001: mem_mask <= LDaddr[2] ? (LDaddr[1] ? 8'b11000000 : 8'b000011) : (LDaddr[1] ? 8'b00001100 : 8'b00000011);
-                     3'b010: mem_mask <= LDaddr[2] ? 8'b11110000 : 8'b00001111;
-                     3'b011: mem_mask <= 8'b11111111;
-                     default: mem_mask <= 8'b0;
-                  endcase
+               case(funct3[1:0]) 
+                  2'b00: size <= 1;
+                  2'b01: size <= 3;
+                  2'b10: size <= 7;
+                  2'b11: size <= 15;
+               endcase
 
-                  mem_addr <= LDaddr;
-                  mem_shift <= {LDaddr[2], LDaddr[1], LDaddr[0]};
-                  mdata <= rs2_data;
-               end
+               mem_addr <= LDaddr;
+               mdata <= rs2_data;
 `ifdef DEBUG
-                  $display("Store %h to %h", rs2_data, LDaddr);
+               $display("Store %h to %h", rs2_data, LDaddr);
 `endif
                
                rw <= WRITE;
@@ -212,13 +196,16 @@ module CPU (
 `ifdef DEBUG
                $display("Load %h from %h (%h) to %d", mem_data, mem_addr, LDaddr, rd);
 `endif
-            end else if(isSYSTEM) begin
+            end
+`ifdef NON_SYNTH
+            else if(isSYSTEM) begin
                $display("Finished correctly");
                $finish;
             end else begin
                $display("Unknown command: %h", instr);
                $finish;
             end
+`endif
 
             state <= FETCH_INSTR;
          end

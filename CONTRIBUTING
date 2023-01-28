@@ -1,0 +1,15 @@
+All contributes are very welcome, you can also use C++ if you want, but please respect these rules:
+
+1. Keep in UTF-8 encoding
+2. Keep code readable
+3. Follow the C17 standard (or maybe C2X), get your copy of C17 here (last draft, should be identical with the official one but it's free)
+   https://web.archive.org/web/20181230041359/http://www.open-std.org/jtc1/sc22/wg14/www/abq/c17_updated_proposed_fdis.pdf
+   and look at this video https://www.youtube.com/watch?v=QpAhX-gsHMs
+4. Be pedantic
+5. Functions have to be in this format:
+// Return type on the same row as opening brackets and func name
+// No space before and after args, underscore case
+int main(char some_arg) {
+    // 4 spaces = 1 tab
+    char* pointer; // Pointer's * left align
+}
