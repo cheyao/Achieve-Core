@@ -7,7 +7,6 @@
 
 using namespace std;
 
-#define DEBUG
 #ifdef DEBUG
 #define DPRINT(str) do { std::cout << str << std::endl; } while( false )
 #else
@@ -17,7 +16,8 @@ using namespace std;
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 768
 
-Uint16 *pixels = new Uint16[SCREEN_WIDTH * SCREEN_HEIGHT];
+uint16_t *pixels = new uint16_t[SCREEN_WIDTH * SCREEN_HEIGHT];
+uint64_t *sdbuffer = new uint64_t[512];
 void veri(int argc, char** argv);
 bool finish;
 
@@ -69,7 +69,6 @@ void veri(int argc, char** argv) {
     fprintf(stderr, "bench.cpp:55: PANIC! Disk image \"SDcontents.bin\" not found!\nAbborting\n");
     exit(1);
   }
-  uint64_t buffer;
 
   // SDL window
   memset(pixels, 0, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(Uint16));
@@ -81,7 +80,7 @@ void veri(int argc, char** argv) {
     top->eval(); // 1
     if (top->isIO && top->pulse) {
       switch (top->port) {
-        case 0 ... (0xC0000 - 1): {
+        case 0x00000 ... 0xBFFFF: {
           if (top->pulse == READ)
             top->data = pixels[top->port];
           else
@@ -89,33 +88,47 @@ void veri(int argc, char** argv) {
 
           break;
         }
-        case 0xC0000: { // SD data
-          if (top->pulse == READ){
-            buffer = 0;
-
-            if (fread(&buffer, (top->size / 2 + 1), 1, disk) != 1)
-              DPRINT("Error while reading size " << hex << (int) top->size / 2 + 1 << " at " << hex << ftell(disk) - (top->size / 2 + 1));
-
-            top->data = buffer;
-            DPRINT("read of size " << hex << (int) (top->size / 2 + 1) << " at " << hex << ftell(disk) - (top->size / 2 + 1) << " = " << buffer);
+        case 0xC0000 ... 0xC0FFF: { // SD data
+          if (top->pulse == READ) {
+            uint64_t data64 = sdbuffer[(top->port & 0xFFF) >> 3];
+            uint64_t data32 = top->port & 4 ? data64 >> 32 : data64 & 0xFFFFFFFF;
+            uint64_t data16 = top->port & 2 ? data32 >> 16 : data32 & 0xFFFF;
+            uint64_t data8  = top->port & 1 ? data16 >> 8 : data16 & 0xFF;
+            switch(top->size) {
+              case 1:
+                top->data = data8;
+                break;
+              case 3:
+                top->data = data16;
+                break;
+              case 7:
+                top->data = data32;
+                break;
+              case 15:
+                top->data = data64;
+                break;
+            }
+            DPRINT("read of size " << hex << (int) top->size << " at " << hex << (top->port & 0xFFF) << " = " << top->data << " aka " << sdbuffer[(top->port & 0xFFF) >> 3]);
           } else {
-            fwrite(&top->data, top->size / 2 + 1, 1, disk);
-            DPRINT("write of size " << hex << (int) (top->size / 2 + 1) << " at " << hex << ftell(disk) - (top->size / 2 + 1) << " = " << top->data);
+            // fwrite(&top->data, top->size / 2 + 1, 1, disk);
+            DPRINT("write of size " << hex << (int) (top->size / 2 + 1) << " = " << top->data);
           }
 
           break;
         }
-        case 0xC0001: { // SD addr
+        case 0xC1000: { // SD addr
           if (top->pulse == READ) {
             top->data = ftell(disk);
           } else {
-            fseek(disk, top->data, SEEK_SET);
-            DPRINT("seek " << hex << top->data);
+            fseek(disk, top->data * 4096, SEEK_SET);
+            DPRINT("seek " << hex << top->data * 4096);
+            if (fread(sdbuffer, sizeof(uint64_t), 512, disk) != 512)
+              std::cout << "Error while reading at " << hex << ftell(disk) - (top->size / 2 + 1) << std::endl;
           }
 
           break;
         }
-        case 0xC0002: { // SD status + command
+        case 0xC1001: { // SD status + command
           if (top->pulse == READ)
             top->data = 0x3;
           else {
@@ -127,12 +140,17 @@ void veri(int argc, char** argv) {
 
           break;
         }
-        case 0xC0003: { // UART
+        case 0xC1002: { // UART
           if (top->pulse == READ)
             top->data = 0;
           else {
-            cout << (char) top->data << flush;
+            cout << (char) top->data;
           }
+
+          break;
+        }
+        case 0xEFFFF: { // DEBUG
+          cout << top->data << flush;
 
           break;
         }

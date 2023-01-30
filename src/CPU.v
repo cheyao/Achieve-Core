@@ -170,12 +170,11 @@ module CPU (
 
                mem_addr <= LDaddr;
                mdata <= rs2_data;
+               rw <= WRITE;
+               pc <= pcnext;
 `ifdef DEBUG
                $display("Store %h to %h", rs2_data, LDaddr);
 `endif
-               
-               rw <= WRITE;
-               pc <= pcnext;
             end else if (isLoad) begin
                if (isIO) begin
                   case(funct3[1:0]) 

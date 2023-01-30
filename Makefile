@@ -18,6 +18,7 @@ Achieve-BIOS/AchieveBIOS.hex: $(wildcard Achieve-BIOS/**/*)
 
 SDcontents.bin: SDcontents
 	dd if=/dev/zero of=SDcontents.bin bs=1048576 count=128
+	-@rm -rf $(wildcard **/.DS_Store)
 	mke2fs -b 4096 -t ext2 -d SDcontents SDcontents.bin
 
 SDcontents: SDfiles

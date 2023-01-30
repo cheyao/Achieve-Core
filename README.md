@@ -10,12 +10,13 @@ MMIO:
 | Start              | End                | Usage                   |
 |--------------------|--------------------|-------------------------|
 | 0x0000000000000000 | 0xFFFFFFFEFFFFFFFF | RAM                     |
-| 0xFFFFFFFF00000000 | 0xFFFFFFFF000C0000 | Screen memory           |
-| 0xFFFFFFFF000C0000 | 0xFFFFFFFF000C0001 | SD data                 |
-| 0xFFFFFFFF000C0001 | 0xFFFFFFFF000C0002 | SD addr                 |
-| 0xFFFFFFFF000C0002 | 0xFFFFFFFF000C0003 | SD status + command     |
-| 0xFFFFFFFF000C0003 | 0xFFFFFFFF000C0004 | UART data               |
-| 0xFFFFFFFF???????? | 0xFFFFFFFFFFFF0000 | Reserved for future use |
+| 0xFFFFFFFF00000000 | 0xFFFFFFFF000BFFFF | Screen memory           |
+| 0xFFFFFFFF000C0000 | 0xFFFFFFFF000C0FFF | SD data                 |
+| 0xFFFFFFFF000C1000 | 0xFFFFFFFF000C1000 | SD addr                 |
+| 0xFFFFFFFF000C1001 | 0xFFFFFFFF000C1001 | SD status + command     |
+| 0xFFFFFFFF000C1002 | 0xFFFFFFFF000C1002 | UART data               |
+| 0xFFFFFFFF???????? | 0xFFFFFFFFFFFEFFFE | Reserved for future use |
+| 0xFFFFFFFFFFFEFFFF | 0xFFFFFFFFFFFEFFFF | Debug print int         |
 | 0xFFFFFFFFFFFF0000 | 0xFFFFFFFFFFFFFFFF | BIOS                    |
 
 ### TODO list
