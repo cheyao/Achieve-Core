@@ -35,3 +35,8 @@ SD status meanings:
 |--------|----------------|
 | 0x0001 | Data ready     |
 | 0x0002 | SDcard present |
+
+# Floating points
+Floating points are still not implemented (cuz the IEEE 754 standerd is fucking useless)
+
+Im gonna implement the posit floating points after

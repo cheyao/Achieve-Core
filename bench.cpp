@@ -5,7 +5,6 @@
 #include <SDL2/SDL.h>
 #include <cstdio>
 
-using namespace std;
 
 #ifdef DEBUG
 #define DPRINT(str) do { std::cout << str << std::endl; } while( false )
@@ -27,7 +26,7 @@ int main(int argc, char** argv) {
   SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED); 
   SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-  thread thread(veri, argc, argv);
+  std::thread thread(veri, argc, argv);
 
   SDL_Event event;
   while (1) {
@@ -52,8 +51,8 @@ int main(int argc, char** argv) {
   return 0;
 }
 
-#define READ  1
-#define WRITE 2
+#define READ  0
+#define WRITE 1
 
 void veri(int argc, char** argv) {
   // Verilator Initialization
@@ -66,7 +65,7 @@ void veri(int argc, char** argv) {
   // Disk
   FILE* disk = fopen("SDcontents.bin", "r+b");
   if (disk == NULL) {
-    fprintf(stderr, "bench.cpp:55: PANIC! Disk image \"SDcontents.bin\" not found!\nAbborting\n");
+    std::cerr << "bench.cpp:67: PANIC! Disk image \"SDcontents.bin\" not found!\nAbborting\n";
     exit(1);
   }
 
@@ -78,10 +77,12 @@ void veri(int argc, char** argv) {
     top->eval(); // 0
     top->clk = !top->clk;
     top->eval(); // 1
-    if (top->isIO && top->pulse) {
+    if (top->isIO) {
+      DPRINT((top->rw ? "Write" : "Read") << " at port " << std::hex << (int) top->port);
+
       switch (top->port) {
         case 0x00000 ... 0xBFFFF: {
-          if (top->pulse == READ)
+          if (top->rw == READ)
             top->data = pixels[top->port];
           else
             pixels[top->port] = top->data;
@@ -89,7 +90,7 @@ void veri(int argc, char** argv) {
           break;
         }
         case 0xC0000 ... 0xC0FFF: { // SD data
-          if (top->pulse == READ) {
+          if (top->rw == READ) {
             uint64_t data64 = sdbuffer[(top->port & 0xFFF) >> 3];
             uint64_t data32 = top->port & 4 ? data64 >> 32 : data64 & 0xFFFFFFFF;
             uint64_t data16 = top->port & 2 ? data32 >> 16 : data32 & 0xFFFF;
@@ -108,28 +109,28 @@ void veri(int argc, char** argv) {
                 top->data = data64;
                 break;
             }
-            DPRINT("read of size " << hex << (int) top->size << " at " << hex << (top->port & 0xFFF) << " = " << top->data << " aka " << sdbuffer[(top->port & 0xFFF) >> 3]);
+            DPRINT("read of size " << std::hex << (int) top->size << " at " << std::hex << (top->port & 0xFFF) << " = " << top->data << " aka " << sdbuffer[(top->port & 0xFFF) >> 3]);
           } else {
             // fwrite(&top->data, top->size / 2 + 1, 1, disk);
-            DPRINT("write of size " << hex << (int) (top->size / 2 + 1) << " = " << top->data);
+            DPRINT("write of size " << std::hex << (int) (top->size / 2 + 1) << " = " << top->data);
           }
 
           break;
         }
         case 0xC1000: { // SD addr
-          if (top->pulse == READ) {
+          if (top->rw == READ) {
             top->data = ftell(disk);
           } else {
             fseek(disk, top->data * 4096, SEEK_SET);
-            DPRINT("seek " << hex << top->data * 4096);
+            DPRINT("seek " << std::hex << top->data * 4096);
             if (fread(sdbuffer, sizeof(uint64_t), 512, disk) != 512)
-              std::cout << "Error while reading at " << hex << ftell(disk) - (top->size / 2 + 1) << std::endl;
+              std::cout << "Error while reading at " << std::hex << ftell(disk) - (top->size / 2 + 1) << std::endl;
           }
 
           break;
         }
         case 0xC1001: { // SD status + command
-          if (top->pulse == READ)
+          if (top->rw == READ)
             top->data = 0x3;
           else {
             switch (top->data) {
@@ -141,21 +142,21 @@ void veri(int argc, char** argv) {
           break;
         }
         case 0xC1002: { // UART
-          if (top->pulse == READ)
+          if (top->rw == READ)
             top->data = 0;
           else {
-            cout << (char) top->data;
+            std::cout << (char) top->data;
           }
 
           break;
         }
         case 0xEFFFF: { // DEBUG
-          cout << top->data << flush;
+          std::cerr << top->data;
 
           break;
         }
         default: {
-          DPRINT("Unhandled IO " << hex << top->port);
+          DPRINT("Unhandled IO " << std::hex << top->port);
           break;
         }
       }

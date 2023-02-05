@@ -9,7 +9,7 @@ MAKE ?= make
 all: build/bench Achieve-BIOS/AchieveBIOS.hex SDcontents.bin
 
 build/bench: bench.cpp $(wildcard src/**/*)
-	$(VERILATOR) src/SOC.v --cc --top-module SOC -Mdir build --build -j 0 -Wall bench.cpp -DBENCH -O3
+	$(VERILATOR) src/SOC.sv --cc --top-module SOC -Mdir build --build -j 0 -Wall bench.cpp -DBENCH -O3
 	$(CXX) $(CXXFLAGS) -O2 -c -o build/bench.o bench.cpp -O2
 	$(CXX) build/bench.o build/verilated.o build/verilated_threads.o build/VSOC__ALL.o -pthread -lpthread -o build/VSOC -std=c++20 -L/usr/local/lib -lSDL2
 
@@ -30,3 +30,7 @@ SDfiles: $(wildcard AchieveOS/**/*)
 	@mkdir -p SDcontents/usr/local/opt
 	$(MAKE) -C AchieveOS
 	mv AchieveOS/kernel SDcontents/System/Library/Kernel/kernel
+
+clean:
+	$(MAKE) -C AchieveOS clean
+	$(MAKE) -C Achieve-BIOS clean

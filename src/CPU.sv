@@ -7,7 +7,6 @@ module CPU (
       output reg  [63:0] mem_addr,
       inout  wire [63:0] mem_data,
       output reg  [ 3:0] size,
-      output reg  [ 1:0] pulse,
       output reg         rw
 );
    reg  [63:0] registers [1:31];
@@ -86,7 +85,6 @@ module CPU (
             mem_addr <= pc;
             rw       <= READ;
             state    <= WAIT_INSTR;
-            pulse    <= 0;
          end
          WAIT_INSTR: begin 
             state    <= FETCH_REGS;
@@ -109,13 +107,9 @@ module CPU (
             state    <= WAIT_REGS2;
          end
          WAIT_REGS2: begin
-            pulse    <= 1; // LOAD
             state    <= EXECUTE;
          end
          EXECUTE: begin
-            if (isStore) pulse <= 2; // Store
-            else pulse <= 0;
-            
             if (isALUreg || isALUimm || isALUreg32 || isALUimm32) begin
                case(funct3)
                   3'b000: registers[rd] <= (funct7[5] & instr[5]) ? aluMinus[63:0] : aluPlus;
@@ -130,19 +124,6 @@ module CPU (
                endcase
 
                pc <= pcnext;
-`ifdef DEBUG
-               case(funct3)
-                  3'b000: $display("ADD %d (%h) to %d (%h) and store into %d, got %h", rs1, rs1_data, rs2, aluIn2, rd, (funct7[5] & instr[5]) ? aluMinus[63:0] : aluPlus);
-                  3'b001: $display("SHL %d (%h) to %d (%h) and store into %d, got %h", rs1, rs1_data, rs2, aluIn2, rd, rs1_data << shamt);
-                  3'b010: $display("LT %d (%h) to %d (%h) and store into %d, got %h", rs1, rs1_data, rs2, aluIn2, rd, {63'b0, LT});
-                  3'b011: $display("LTU %d (%h) to %d (%h) and store into %d, got %h", rs1, rs1_data, rs2, aluIn2, rd, {63'b0, LTU});
-                  3'b100: $display("XOR %d (%h) to %d (%h) and store into %d, got %h", rs1, rs1_data, rs2, aluIn2, rd, (rs1_data ^ aluIn2));
-                  3'b101: $display("SHR %d (%h) to %d (%h) and store into %d, got %h", rs1, rs1_data, rs2, aluIn2, rd, funct7[5]? ($signed(rs1_data) >>> shamt) : ($signed(rs1_data) >> shamt)); 
-                  3'b110: $display("OR %d (%h) to %d (%h) and store into %d, got %h", rs1, rs1_data, rs2, aluIn2, rd, (rs1_data | aluIn2));
-                  3'b111: $display("AND %d (%h) to %d (%h) and store into %d, got %h", rs1, rs1_data, rs2, aluIn2, rd, (rs1_data & aluIn2)); 
-               endcase
-               
-`endif
             end else if (isJAL) begin
                registers[rd] <= pcnext;
                pc <= pc + {{44{instr[31]}}, instr[19:12],instr[20],instr[30:21],1'b0}; // Jmm
@@ -172,9 +153,6 @@ module CPU (
                mdata <= rs2_data;
                rw <= WRITE;
                pc <= pcnext;
-`ifdef DEBUG
-               $display("Store %h to %h", rs2_data, LDaddr);
-`endif
             end else if (isLoad) begin
                if (isIO) begin
                   case(funct3[1:0]) 
@@ -192,9 +170,6 @@ module CPU (
                   endcase
                end
                pc <= pcnext;
-`ifdef DEBUG
-               $display("Load %h from %h (%h) to %d", mem_data, mem_addr, LDaddr, rd);
-`endif
             end
 `ifdef NON_SYNTH
             else if(isSYSTEM) begin

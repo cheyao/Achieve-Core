@@ -4,19 +4,18 @@
  */
 `default_nettype none
 
-`include "src/Memory.v" 
-`include "src/ROM.v" 
-`include "src/CPU.v"
- 
+`include "src/Memory.sv"
+`include "src/ROM.sv"
+`include "src/CPU.sv"
+
 module SOC (
-   input             clk,
-   input             reset,
-   output reg [63:0] data, // Max word
-   output reg [31:0] port,
-   output wire       isIO,
-   output wire [3:0] size,
-   output wire [1:0] pulse,
-   output wire       rw
+    input             clk,
+    input             reset,
+    output reg [63:0] data, // Max word
+    output reg [31:0] port,
+    output wire       isIO,
+    output wire [3:0] size,
+    output wire       rw
 );
    wire [63:0] mem_addr;
    wire   isBIOS = mem_addr[63:16] == 48'hFFFFFFFFFFFF;
@@ -31,9 +30,8 @@ module SOC (
       .mem_addr(mem_addr),
       .mem_data(data),
       .size(size),
-      .pulse(pulse),
       .rw(rw)
-   ); 
+   );
 
    Memory memory( // (Should be) Extern memory
       .clk(clk),
