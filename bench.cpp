@@ -150,6 +150,15 @@ void veri(int argc, char** argv) {
 
           break;
         }
+        case 0xC1003: {
+          if (top->rw == READ)
+            top->data = 8388608;
+          else {
+            std::cout << (char) top->data;
+          }
+          
+          break;
+        }
         case 0xEFFFF: { // DEBUG
           std::cerr << top->data;
 

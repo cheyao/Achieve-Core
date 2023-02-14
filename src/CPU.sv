@@ -1,5 +1,5 @@
 // `define DEBUG
-`define NON_SYNTH
+// `define NON_SYNTH
 
 module CPU (
       input  wire        clk,

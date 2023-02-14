@@ -15,6 +15,7 @@ MMIO:
 | 0xFFFFFFFF000C1000 | 0xFFFFFFFF000C1000 | SD addr                 |
 | 0xFFFFFFFF000C1001 | 0xFFFFFFFF000C1001 | SD status + command     |
 | 0xFFFFFFFF000C1002 | 0xFFFFFFFF000C1002 | UART data               |
+| 0xFFFFFFFF000C1003 | 0xFFFFFFFF000C1003 | MEM size                |
 | 0xFFFFFFFF???????? | 0xFFFFFFFFFFFEFFFE | Reserved for future use |
 | 0xFFFFFFFFFFFEFFFF | 0xFFFFFFFFFFFEFFFF | Debug print int         |
 | 0xFFFFFFFFFFFF0000 | 0xFFFFFFFFFFFFFFFF | BIOS                    |
