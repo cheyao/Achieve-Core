@@ -1,5 +1,5 @@
 // `define DEBUG
-// `define NON_SYNTH
+`define NON_SYNTH
 
 module CPU (
       input  wire        clk,
@@ -11,7 +11,7 @@ module CPU (
 );
    reg  [63:0] registers [1:31];
 
-   wire isIO = mem_addr[63:32] == 32'hFFFFFFFF && mem_addr[31:16] != 16'hFFFF;
+   wire isIO = mem_addr[63:32] == 32'1 && mem_addr[31:16] != 16'1;
 
    reg  [63:0] pc     = 64'hFFFFFFFFFFFF0000;
    reg  [63:0] mdata  = 0;
@@ -19,9 +19,9 @@ module CPU (
    wire [4:0]  rs1    = instr[19:15];
    wire [4:0]  rs2    = instr[24:20];
    wire [4:0]  rd     = instr[11: 7];
-   wire [63:0] rs1_data = rs1 == 0 ? 64'b0 : registers[rs1];
-   wire [63:0] rs2_data = rs2 == 0 ? 64'b0 : registers[rs2];
-   assign      mem_data = rw ? mdata : 64'bz;
+   wire [63:0] rs1_data = rs1 == 0 ? 64'0 : registers[rs1];
+   wire [63:0] rs2_data = rs2 == 0 ? 64'0 : registers[rs2];
+   assign      mem_data = rw ? mdata : 64'z;
    wire [63:0] pcnext = pc + 4;
 
    wire isALUreg   = (instr[6:0] == 7'b0110011); // rd <- rs1 OP rs2   
