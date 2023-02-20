@@ -3,10 +3,10 @@ CXXFLAGS := -I build -MMD -I/usr/local/Cellar/verilator/5.004/share/verilator/in
 			-DVM_COVERAGE=0 -DVM_SC=0 -DVM_TRACE=0 -DVM_TRACE_FST=0 -DVM_TRACE_VCD=0 -faligned-new -fbracket-depth=4096 -fcf-protection=none -Qunused-arguments \
 			-Wno-bool-operation -Wno-tautological-bitwise-compare -Wno-parentheses-equality -Wno-sign-compare -Wno-uninitialized -Wno-unused-parameter -Wno-unused-variable \
 			-Wno-shadow -std=gnu++14
-CXX ?= g++-12
+CXX ?= g++
 MAKE ?= make
 
-.PHONY: all st clang-tidy ct clean run
+.PHONY: all st clang-tidy ct clean run SDcontents
 
 all: build/bench Achieve-BIOS/AchieveBIOS.hex SDcontents.bin
 
@@ -26,21 +26,19 @@ SDcontents.bin: SDcontents
 	-@rm -rf $(wildcard **/.DS_Store)
 	mke2fs -b 4096 -t ext2 -d SDcontents SDcontents.bin
 
-SDcontents: SDfiles
-
-SDfiles: $(wildcard AchieveOS/**/*)
+SDcontents:
 	@mkdir -p SDcontents/System/Library/Kernel
 	@mkdir -p SDcontents/usr/local/bin
 	@mkdir -p SDcontents/usr/local/lib
 	@mkdir -p SDcontents/usr/local/opt
-	$(MAKE) -C AchieveOS
-	mv AchieveOS/kernel SDcontents/System/Library/Kernel/kernel
+	@$(MAKE) -C AchieveOS
+	@mv AchieveOS/kernel SDcontents/System/Library/Kernel/kernel
 
 ct: clang-tidy
 clang-tidy:
-	$(MAKE) -C AchieveOS clang-tidy
-	$(MAKE) -C Achieve-BIOS clang-tidy
+	-@$(MAKE) -C AchieveOS clang-tidy
+	-@$(MAKE) -C Achieve-BIOS clang-tidy
 
 clean:
-	$(MAKE) -C AchieveOS clean
-	$(MAKE) -C Achieve-BIOS clean
+	@$(MAKE) -C AchieveOS clean
+	@$(MAKE) -C Achieve-BIOS clean
