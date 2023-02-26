@@ -7,9 +7,9 @@
 
 
 #ifdef DEBUG
-#define DPRINT(str) do { std::cout << str << std::endl; } while( false )
+#define DPRINT(str) std::cout << str << std::endl;
 #else
-#define DPRINT(str) do { } while ( false )
+#define DPRINT(str) 
 #endif
 
 #define SCREEN_WIDTH 1024
@@ -81,7 +81,7 @@ void veri(int argc, char** argv) {
       DPRINT((top->rw ? "Write" : "Read") << " at port " << std::hex << (int) top->port);
 
       switch (top->port) {
-        case 0x00000 ... 0xBFFFF: {
+        case 0x00000000 ... 0xBFFFF: {
           if (top->rw == READ)
             top->data = pixels[top->port];
           else
@@ -89,7 +89,7 @@ void veri(int argc, char** argv) {
 
           break;
         }
-        case 0xC0000 ... 0xC0FFF: { // SD data
+        case 0x000C0000 ... 0xC0FFF: { // SD data
           if (top->rw == READ) {
             uint64_t data64 = sdbuffer[(top->port & 0xFFF) >> 3];
             uint64_t data32 = top->port & 4 ? data64 >> 32 : data64 & 0xFFFFFFFF;
@@ -117,8 +117,8 @@ void veri(int argc, char** argv) {
 
           break;
         }
-        case 0xC1000: { // SD addr
-          if (top->rw == READ) {
+        case 0x000C1000: { // SD addr
+          if (top->rw == READ) { 
             top->data = ftell(disk);
           } else {
             fseek(disk, top->data * 4096, SEEK_SET);
@@ -129,9 +129,9 @@ void veri(int argc, char** argv) {
 
           break;
         }
-        case 0xC1001: { // SD status + command
+        case 0x000C1001: { // SD status + command
           if (top->rw == READ)
-            top->data = 0x3;
+            top->data = 0x3;  
           else {
             switch (top->data) {
               case 0: // Restart
@@ -141,7 +141,7 @@ void veri(int argc, char** argv) {
 
           break;
         }
-        case 0xC1002: { // UART
+        case 0x000C1002: { // UART
           if (top->rw == READ)
             top->data = 0;
           else {
@@ -150,7 +150,7 @@ void veri(int argc, char** argv) {
 
           break;
         }
-        case 0xC1003: {
+        case 0x000C1003: {
           if (top->rw == READ)
             top->data = 8388608;
           else {
@@ -159,7 +159,7 @@ void veri(int argc, char** argv) {
           
           break;
         }
-        case 0xEFFFF: { // DEBUG
+        case 0xFFFEFFFF: { // DEBUG
           std::cerr << top->data;
 
           break;

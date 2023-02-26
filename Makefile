@@ -8,22 +8,23 @@ MAKE ?= make
 
 .PHONY: all st clang-tidy ct clean run SDcontents
 
-all: build/bench Achieve-BIOS/AchieveBIOS.hex SDcontents.bin
+all: build/VSOC Achieve-BIOS/AchieveBIOS.hex SDcontents.bin
 
 run: all
-	./build/ACE
+	./build/VSOC
 
-build/bench: bench.cpp $(wildcard src/**/*)
+build/VSOC: bench.cpp $(wildcard src/*.sv)
 	$(VERILATOR) src/SOC.sv --cc --top-module SOC -Mdir build --build -j 0 -Wall bench.cpp -DBENCH -O3
 	$(CXX) $(CXXFLAGS) -O2 -c -o build/bench.o bench.cpp -O2
 	$(CXX) build/bench.o build/verilated.o build/verilated_threads.o build/VSOC__ALL.o -pthread -lpthread -o build/ACE -std=c++20 -L/usr/local/lib -lSDL2
 
-Achieve-BIOS/AchieveBIOS.hex: $(wildcard Achieve-BIOS/**/*)
+Achieve-BIOS/AchieveBIOS.hex: $(wildcard Achieve-BIOS/src/*.c)
 	$(MAKE) -C Achieve-BIOS
 
 SDcontents.bin: SDcontents
 	dd if=/dev/zero of=SDcontents.bin bs=1048576 count=128
 	-@rm -rf $(wildcard **/.DS_Store)
+	-@rm -rf **/.DS_Store
 	mke2fs -b 4096 -t ext2 -d SDcontents SDcontents.bin
 
 SDcontents:
@@ -42,3 +43,4 @@ clang-tidy:
 clean:
 	@$(MAKE) -C AchieveOS clean
 	@$(MAKE) -C Achieve-BIOS clean
+	rm -rf SDcontents.bin
